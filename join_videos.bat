@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal DisableDelayedExpansion
-title Juntar Videos (sem recodificar)
+title Join Videos (no re-encoding)
 
 rem ==========================================================================
 rem  Joins every video in the folder where this .bat lives, WITHOUT
@@ -23,19 +23,19 @@ set "JV_SORTED=%TEMP%\join_videos_sorted_%RANDOM%.txt"
 
 echo.
 echo ==============================================================
-echo    JUNTAR VIDEOS  -  copia direta de streams (sem renderizar)
+echo    JOIN VIDEOS  -  direct stream copy (no re-encoding)
 echo ==============================================================
-echo  Pasta: %CD%
+echo  Folder: %CD%
 echo.
 
 rem ---- Check ffmpeg / ffprobe ----
 where ffmpeg >nul 2>&1 || (
-    echo [ERRO] ffmpeg nao encontrado. Instale com:  winget install Gyan.FFmpeg
-    echo        ou coloque ffmpeg.exe e ffprobe.exe nesta pasta.
+    echo [ERROR] ffmpeg not found. Install it with:  winget install Gyan.FFmpeg
+    echo         or place ffmpeg.exe and ffprobe.exe in this folder.
     goto :finish
 )
 where ffprobe >nul 2>&1 || (
-    echo [ERRO] ffprobe nao encontrado. Ele vem junto com o ffmpeg.
+    echo [ERROR] ffprobe not found. It ships together with ffmpeg.
     goto :finish
 )
 
@@ -45,28 +45,28 @@ if "%JV_ORDER%"=="1" goto :order_ok
 if "%JV_ORDER%"=="2" goto :order_ok
 if "%JV_ORDER%"=="3" goto :order_ok
 if "%JV_ORDER%"=="4" goto :order_ok
-echo  Como ordenar os videos?
-echo    [1] Nome do arquivo (ordem natural: video2 antes de video10)
-echo    [2] Data de gravacao (metadado interno do video)
-echo    [3] Data de modificacao do arquivo
-echo    [4] Data de criacao do arquivo
+echo  How should the videos be sorted?
+echo    [1] File name (natural order: video2 before video10)
+echo    [2] Recording date (video's internal metadata)
+echo    [3] File modified date
+echo    [4] File created date
 echo.
-choice /c 1234 /n /m "  Escolha (1-4): "
+choice /c 1234 /n /m "  Choose (1-4): "
 set "JV_ORDER=%ERRORLEVEL%"
 :order_ok
-if "%JV_ORDER%"=="1" set "ORDER_DESC=Nome do arquivo (ordem natural)"
-if "%JV_ORDER%"=="2" set "ORDER_DESC=Data de gravacao (metadado do video)"
-if "%JV_ORDER%"=="3" set "ORDER_DESC=Data de modificacao do arquivo"
-if "%JV_ORDER%"=="4" set "ORDER_DESC=Data de criacao do arquivo"
+if "%JV_ORDER%"=="1" set "ORDER_DESC=File name (natural order)"
+if "%JV_ORDER%"=="2" set "ORDER_DESC=Recording date (video metadata)"
+if "%JV_ORDER%"=="3" set "ORDER_DESC=File modified date"
+if "%JV_ORDER%"=="4" set "ORDER_DESC=File created date"
 echo.
-echo  Ordenando por: %ORDER_DESC%
-if "%JV_ORDER%"=="2" echo  (lendo metadados dos videos, aguarde...)
+echo  Sorting by: %ORDER_DESC%
+if "%JV_ORDER%"=="2" echo  (reading video metadata, please wait...)
 
 rem ---- Build the sorted list (PowerShell block at the end of this file) ----
 if exist "%JV_SORTED%" del "%JV_SORTED%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=[IO.File]::ReadAllText($env:JV_BAT,[Text.Encoding]::UTF8); iex $s.Substring($s.LastIndexOf('#PS_START'))"
 if not exist "%JV_SORTED%" (
-    echo  [ERRO] Nenhum video encontrado nesta pasta.
+    echo  [ERROR] No videos found in this folder.
     goto :finish
 )
 
@@ -78,7 +78,7 @@ set "CODEC_REF="
 set "MISMATCH=0"
 
 echo.
-echo  Videos na ordem em que serao juntados:
+echo  Videos in the order they will be joined:
 echo  --------------------------------------------------------------
 for /f "usebackq tokens=1,2 delims=|" %%A in ("%JV_SORTED%") do (
     call :process_file "%%A" "%%B"
@@ -86,21 +86,21 @@ for /f "usebackq tokens=1,2 delims=|" %%A in ("%JV_SORTED%") do (
 
 if %COUNT% LSS 2 (
     echo.
-    echo  [AVISO] Apenas %COUNT% video encontrado. Nada para juntar.
+    echo  [WARNING] Only %COUNT% video found. Nothing to join.
     goto :finish
 )
 
 if "%MISMATCH%"=="1" (
     echo.
-    echo  [AVISO] Os videos possuem codecs/resolucoes diferentes.
-    echo          A juncao sem recodificar pode falhar ou gerar um arquivo
-    echo          com problemas de reproducao.
+    echo  [WARNING] The videos have different codecs/resolutions.
+    echo            Joining without re-encoding may fail or produce a file
+    echo            with playback issues.
 )
 
 echo.
-choice /c SN /m "  A ordem acima esta correta? Continuar"
+choice /c YN /m "  Is the order above correct? Continue"
 if errorlevel 2 (
-    echo  Cancelado. Rode novamente e escolha outra forma de ordenar.
+    echo  Cancelled. Run again and choose a different sort order.
     goto :finish
 )
 
@@ -111,13 +111,13 @@ set "OUTPUT=%JV_PREFIX%%TIMESTAMP%%EXT%"
 
 echo.
 echo  --------------------------------------------------------------
-echo  Total de videos : %COUNT%
-echo  Ordem           : %ORDER_DESC%
-echo  Arquivo de saida: %OUTPUT%
-echo  Modo            : copia de streams (-c copy), sem recodificar
+echo  Total videos : %COUNT%
+echo  Sort order   : %ORDER_DESC%
+echo  Output file  : %OUTPUT%
+echo  Mode         : stream copy (-c copy), no re-encoding
 echo  --------------------------------------------------------------
 echo.
-echo  Juntando... (progresso abaixo)
+echo  Joining... (progress below)
 echo.
 
 set "START_TIME=%TIME%"
@@ -129,28 +129,28 @@ set "RC=%ERRORLEVEL%"
 
 echo.
 if not "%RC%"=="0" (
-    echo  [AVISO] O ffmpeg terminou com erro ^(codigo %RC%^).
-    echo          Tentando novamente apenas com video e audio principais...
+    echo  [WARNING] ffmpeg exited with an error ^(code %RC%^).
+    echo            Retrying with just the main video and audio tracks...
     if exist "%OUTPUT%" del "%OUTPUT%"
     ffmpeg -hide_banner -loglevel error -stats -f concat -safe 0 -i "%CONCAT_LIST%" -map 0:v:0 -map 0:a:0? -c copy -avoid_negative_ts make_zero "%OUTPUT%"
 )
 if not "%RC%"=="0" set "RC=%ERRORLEVEL%"
 set "END_TIME=%TIME%"
 if not "%RC%"=="0" (
-    echo  [ERRO] Nao foi possivel juntar os videos sem recodificar.
+    echo  [ERROR] Could not join the videos without re-encoding.
     goto :finish
 )
 
 echo ==============================================================
-echo  CONCLUIDO!
-echo  Inicio : %START_TIME%
-echo  Fim    : %END_TIME%
+echo  DONE!
+echo  Started : %START_TIME%
+echo  Finished: %END_TIME%
 for %%S in ("%OUTPUT%") do call :size_mb "%%~zS"
-echo  Tamanho: %MB% MB
+echo  Size    : %MB% MB
 set "DURATION=?"
 for /f "delims=" %%T in ('ffprobe -v error -show_entries format^=duration -sexagesimal -of default^=nw^=1:nk^=1 "%OUTPUT%"') do set "DURATION=%%T"
-echo  Duracao: %DURATION%
-echo  Arquivo: %CD%\%OUTPUT%
+echo  Duration: %DURATION%
+echo  File    : %CD%\%OUTPUT%
 echo ==============================================================
 goto :finish
 
@@ -176,7 +176,7 @@ if not "%VIDEO_INFO%"=="%CODEC_REF%" set "MISMATCH=1"
 
 call :size_mb "%BYTES%"
 echo  [%COUNT%] %FILE_NAME%
-echo       %SORT_KEY%  ^|  %MB% MB  ^|  Duracao: %DURATION%  ^|  Video: %VIDEO_INFO%
+echo       %SORT_KEY%  ^|  %MB% MB  ^|  Duration: %DURATION%  ^|  Video: %VIDEO_INFO%
 
 rem Append to the ffmpeg concat list (single quotes escaped as '\'')
 set "LINE=%FULL_PATH:'='\''%"
@@ -227,7 +227,7 @@ $items = foreach ($file in $files) {
     switch ($env:JV_ORDER) {
         '1' {
             $key  = [regex]::Replace($file.Name.ToLower(), '\d+', { param($m) $m.Value.PadLeft(20, '0') })
-            $desc = 'Nome'
+            $desc = 'Name'
         }
         '2' {
             $tags = @{}
@@ -238,17 +238,17 @@ $items = foreach ($file in $files) {
                 $parsed = [datetime]::MinValue
                 if ($tags[$tag] -and [datetime]::TryParse($tags[$tag], [ref]$parsed) -and $parsed.Year -ge 1980) { $date = $parsed; break }
             }
-            if ($date) { $desc = 'Gravado: ' + $date.ToString($dateFormat) }
-            else       { $date = $file.LastWriteTime; $desc = 'Sem metadado, modificado: ' + $date.ToString($dateFormat) }
+            if ($date) { $desc = 'Recorded: ' + $date.ToString($dateFormat) }
+            else       { $date = $file.LastWriteTime; $desc = 'No metadata, modified: ' + $date.ToString($dateFormat) }
             $key = $date.ToString('yyyyMMddHHmmssfff')
         }
         '3' {
             $key  = $file.LastWriteTime.ToString('yyyyMMddHHmmssfff')
-            $desc = 'Modificado: ' + $file.LastWriteTime.ToString($dateFormat)
+            $desc = 'Modified: ' + $file.LastWriteTime.ToString($dateFormat)
         }
         default {
             $key  = $file.CreationTime.ToString('yyyyMMddHHmmssfff')
-            $desc = 'Criado: ' + $file.CreationTime.ToString($dateFormat)
+            $desc = 'Created: ' + $file.CreationTime.ToString($dateFormat)
         }
     }
     [pscustomobject]@{ Key = $key; Name = $file.Name; Desc = $desc }
