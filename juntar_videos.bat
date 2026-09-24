@@ -121,15 +121,17 @@ echo  Juntando... (progresso abaixo)
 echo.
 
 set "INICIO=%TIME%"
-ffmpeg -hide_banner -loglevel warning -stats -f concat -safe 0 -i "%LISTA%" -map 0 -c copy -avoid_negative_ts make_zero "%SAIDA%"
+rem Copia video, audio e legendas. Ignora miniatura (capa) e trilhas de dados
+rem de camera (ex.: telemetria DJI djmd/dbgi), que o ffmpeg nao consegue juntar.
+ffmpeg -hide_banner -loglevel error -stats -f concat -safe 0 -i "%LISTA%" -map 0:V -map 0:a? -map 0:s? -ignore_unknown -c copy -avoid_negative_ts make_zero "%SAIDA%"
 set "RC=%ERRORLEVEL%"
 
 echo.
 if not "%RC%"=="0" (
-    echo  [ERRO] O ffmpeg terminou com erro ^(codigo %RC%^).
-    echo         Tentando novamente apenas com video e audio principais...
+    echo  [AVISO] O ffmpeg terminou com erro ^(codigo %RC%^).
+    echo          Tentando novamente apenas com video e audio principais...
     if exist "%SAIDA%" del "%SAIDA%"
-    ffmpeg -hide_banner -loglevel warning -stats -f concat -safe 0 -i "%LISTA%" -map 0:v:0 -map 0:a:0? -c copy -avoid_negative_ts make_zero "%SAIDA%"
+    ffmpeg -hide_banner -loglevel error -stats -f concat -safe 0 -i "%LISTA%" -map 0:v:0 -map 0:a:0? -c copy -avoid_negative_ts make_zero "%SAIDA%"
 )
 if not "%RC%"=="0" set "RC=%ERRORLEVEL%"
 set "FIM=%TIME%"
